@@ -48,7 +48,8 @@ public class CommandLineController {
         JITTER_FRAMES,
         MOTTLE_FRAMES,
         BLEED_FRAMES,
-        PEPPER_FRAMES
+        PEPPER_FRAMES,
+        SUBTITLE_FRAMES
     }
 
     private List<FPOptions> frameProcessors = new ArrayList<>();
@@ -72,6 +73,8 @@ public class CommandLineController {
         shortFrameProcessors.put('m', FPOptions.MOTTLE_FRAMES);
         shortFrameProcessors.put('b', FPOptions.BLEED_FRAMES);
         shortFrameProcessors.put('p', FPOptions.PEPPER_FRAMES);
+
+        shortFrameProcessors.put('S', FPOptions.SUBTITLE_FRAMES);
         
         // Add long form frame processor to the map
         longFrameProcessors.put("--number-frames", FPOptions.NUMBER_FRAMES);
@@ -85,6 +88,8 @@ public class CommandLineController {
         longFrameProcessors.put("--mottle-frames", FPOptions.MOTTLE_FRAMES);
         longFrameProcessors.put("--bleed-frames", FPOptions.BLEED_FRAMES);
         longFrameProcessors.put("--pepper-frames", FPOptions.PEPPER_FRAMES);
+
+        longFrameProcessors.put("--subtitle-frames", FPOptions.SUBTITLE_FRAMES);
     }
 
     public CommandLineController(String[] args) {
@@ -233,6 +238,7 @@ public class CommandLineController {
         System.out.println("  -m, --mottle-frames    Add cloudy emulsion mottling");
         System.out.println("  -b, --bleed-frames     Bleed light into frames");
         System.out.println("  -p, --pepper-frames    Pepper frames with dark spots/blotches");
+        System.out.println("  -S, --subtitle-frames  Add speech-to-text subtitles to frames"); 
         System.out.println();
         System.out.println("Frame processors are applied in command-line order and may be repeated.");
         System.out.println("Example: -nssnfwyvdjmbp numbers, scratches twice, numbers again, flickers,");

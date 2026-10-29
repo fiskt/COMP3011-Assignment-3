@@ -330,6 +330,7 @@ public class VideoPlayerModel {
             case MOTTLE_FRAMES -> new FrameMottler();
             case BLEED_FRAMES -> new FrameBleeder();
             case PEPPER_FRAMES -> new FramePepperer();
+            case SUBTITLE_FRAMES -> new FrameSubtitler();
         };
     }
 
