@@ -293,6 +293,25 @@ public class VideoPlayerModel {
         processFramesThreads.clear();
     }
 
+    private void setupSubtitler() {
+        System.out.println("setupSubtitler called");
+        for (FrameProcessor fp : frameProcessors) {
+            if (fp instanceof FrameSubtitler subtitler) {
+                System.out.println("Found subtitler option");
+                subtitler.setSubtitleStore(getSubtitles(videoFile));
+            }
+        }
+    }
+
+    private SubtitleStore getSubtitles(File videoFile) {
+        System.out.println("getSubtitles called");
+        return new SubtitleStore(List.of(
+            new SubtitleStore.Subtitle("This is a test subtitle.", 0, 3_000_000),
+            new SubtitleStore.Subtitle("Multithreading is working great.", 3_000_000, 6_000_000),
+            new SubtitleStore.Subtitle("Subtitles are now rendering.", 6_000_000, 9_000_000)
+        ));
+    }
+
     public VideoPlayerModel(
             boolean audioEnabled,
             // Take in the frame processor list as a parameter
@@ -330,6 +349,9 @@ public class VideoPlayerModel {
             case MOTTLE_FRAMES -> new FrameMottler();
             case BLEED_FRAMES -> new FrameBleeder();
             case PEPPER_FRAMES -> new FramePepperer();
+
+            // FrameSubtitler object would be created, but subtitleStore in the object
+            // is null because no video file is known yet
             case SUBTITLE_FRAMES -> new FrameSubtitler();
         };
     }
@@ -455,6 +477,9 @@ public class VideoPlayerModel {
             openPlaybackResources(startTimestampUs);
             resetPlaybackClock(currentTimestampUs);
             playbackOpen = true;
+
+            // Pass the subtitles to the FrameSubtitler object
+            setupSubtitler();
 
             // Start getting and processing frames once playback opens
             startFrameThreads();
