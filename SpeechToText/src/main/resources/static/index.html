@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Speech To Text</title>
+</head>
+<body>
+        <div class="content top-bar">
+            <!-- Top bar -->
+
+            <h1>Speech to text</h1>
+        </div>
+        <div class="content main-content">
+            <!-- Main content -->
+
+            <div class="content-container audio-container">
+                <!-- Recording / file upload -->
+                <div>
+                    <div id="input-type-container">
+                        <button id="open-record-btn" disabled>Record Audio</button>
+                    </div>
+                    <div class="input-container" id="record-input-container">
+                        <!-- Recording -->
+                        <button id="record-btn">Record</button>
+                    </div>
+                </div>
+
+                <div class="content-container recording-controls">
+                    <!-- Controls -->
+                    <audio
+                        id="audio-player"
+                        controls
+                    >
+                    </audio>
+                </div>
+            </div>
+
+            <div class="content-container text-output-container">
+                <!-- Text output -->
+
+                 <div id="text-output-controls">
+                    <!-- Copy buttons -->
+                    <h4>Output</h4>
+                 </div>
+                 <div class="content-container">
+                    <!-- Scrollable text output -->
+                    <p class="text-output-box"></p>
+                 </div>
+            </div>
+        </div>
+        <script src="script.js"></script>
+</body>
+</html>
