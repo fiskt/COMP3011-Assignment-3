@@ -306,9 +306,9 @@ public class VideoPlayerModel {
     private SubtitleStore getSubtitles(File videoFile) {
         System.out.println("getSubtitles called");
         return new SubtitleStore(List.of(
-            new SubtitleStore.Subtitle("This is a test subtitle.", 0, 3_000_000),
-            new SubtitleStore.Subtitle("Multithreading is working great.", 3_000_000, 6_000_000),
-            new SubtitleStore.Subtitle("Subtitles are now rendering.", 6_000_000, 9_000_000)
+            new SubtitleStore.Subtitle("Test test test subtitle this is too long to fit on a single line", 0, 12_000_000),
+            new SubtitleStore.Subtitle("Seconnd subtitle, this fits on 1 line", 12_000_000, 16_000_000),
+            new SubtitleStore.Subtitle("Subtitles are now rendering.", 16_000_000, 29_000_000)
         ));
     }
 
@@ -332,8 +332,22 @@ public class VideoPlayerModel {
         // Loop through the frame processor list from 
         // CommandLineController and add the frame processors
         for (FPOptions option : frameProcessorOptions) {
+            // Skip subtitles for now
+            if (option == FPOptions.SUBTITLE_FRAMES) continue;
             frameProcessors.add(newFP(option));
         }
+
+        // The player can have subtitles enabled/disabled with a button so the subtitler object 
+        // should always be there. If -S is one of the command line inputs, set the subtitles 
+        // to be initially on
+        boolean subtitleEnabledOnLaunch = frameProcessorOptions.contains(FPOptions.SUBTITLE_FRAMES);
+        addSubtitler(subtitleEnabledOnLaunch);
+    }
+
+    private void addSubtitler(boolean enabledOnLaunch) {
+        FrameSubtitler subtitler = new FrameSubtitler();
+        subtitler.setEnabled(enabledOnLaunch);
+        frameProcessors.add(subtitler);
     }
 
     private FrameProcessor newFP(CommandLineController.FPOptions fpOption) {
@@ -349,10 +363,7 @@ public class VideoPlayerModel {
             case MOTTLE_FRAMES -> new FrameMottler();
             case BLEED_FRAMES -> new FrameBleeder();
             case PEPPER_FRAMES -> new FramePepperer();
-
-            // FrameSubtitler object would be created, but subtitleStore in the object
-            // is null because no video file is known yet
-            case SUBTITLE_FRAMES -> new FrameSubtitler();
+            case SUBTITLE_FRAMES -> null;
         };
     }
 
@@ -398,6 +409,15 @@ public class VideoPlayerModel {
         }
 
         notifyPlaybackStateChanged();
+    }
+
+    public void toggleSubtitles() {
+        for (FrameProcessor fp : frameProcessors) {
+            if (fp instanceof FrameSubtitler subtitler) {
+                boolean currentState = subtitler.getEnabled();
+                subtitler.setEnabled(!currentState);
+            }
+        }
     }
 
     public void toggleAudioOutput() {

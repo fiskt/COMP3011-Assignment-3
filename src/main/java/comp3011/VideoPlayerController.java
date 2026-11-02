@@ -55,6 +55,7 @@ public class VideoPlayerController {
         view.getPausePlayButton().setOnAction(_ -> togglePause());
         view.getForwardFiveButton().setOnAction(_ -> forwardFiveSeconds());
         view.getStopButton().setOnAction(_ -> stopAndExit());
+        view.getSubtitleButton().setOnAction(_ -> toggleSubtitles());
         view.getAudioButton().setOnAction(_ -> toggleAudioOutput());
         view.showAudioEnabled(model.isAudioOutputEnabled());
     }
@@ -78,6 +79,9 @@ public class VideoPlayerController {
                 event.consume();
             } else if (event.getCode() == KeyCode.A) {
                 toggleAudioOutput();
+                event.consume();
+            } else if (event.getCode() == KeyCode.S) {
+                toggleSubtitles();
                 event.consume();
             }
         });
@@ -106,6 +110,10 @@ public class VideoPlayerController {
 
     private void togglePause() {
         model.togglePause();
+    }
+
+    private void toggleSubtitles() {
+        model.toggleSubtitles();
     }
 
     private void forwardFiveSeconds() {

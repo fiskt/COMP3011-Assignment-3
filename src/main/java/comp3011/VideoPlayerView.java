@@ -10,6 +10,11 @@
  */
 package comp3011;
 
+import javafx.geometry.VPos;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -56,6 +61,7 @@ public class VideoPlayerView {
     private final Button pausePlayButton;
     private final Button forwardFiveButton;
     private final Button stopButton;
+    private final Button subtitleButton;
     private final Button audioButton;
 
     public VideoPlayerView() {
@@ -74,6 +80,7 @@ public class VideoPlayerView {
         pausePlayButton = iconButton(createPauseIcon());
         forwardFiveButton = iconButton(createLoopIcon(true, "5"));
         stopButton = iconButton(createStopIcon());
+        subtitleButton = iconButton(createSubtitleIcon());
         audioButton = iconButton(createAudioIcon(false));
         setPlaybackControlsDisabled(true);
 
@@ -84,6 +91,7 @@ public class VideoPlayerView {
                 pausePlayButton,
                 forwardFiveButton,
                 stopButton,
+                subtitleButton,
                 audioButton,
                 statusLabel);
 
@@ -121,6 +129,10 @@ public class VideoPlayerView {
 
     public Button getStopButton() {
         return stopButton;
+    }
+
+    public Button getSubtitleButton() {
+        return subtitleButton;
     }
 
     public Button getAudioButton() {
@@ -305,6 +317,20 @@ public class VideoPlayerView {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.setFill(Color.BLACK);
         gc.fillRect(9, 9, 11, 11);
+        return canvas;
+    }
+
+    private Canvas createSubtitleIcon() {
+        Canvas canvas = new Canvas(ICON_SIZE, ICON_SIZE);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        // Source - https://stackoverflow.com/a/64384851
+        // Posted by Andrew Lalis
+        // Retrieved 2026-11-02, License - CC BY-SA 4.0
+        gc.setFill(Color.BLACK);
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.fillText("CC", ICON_SIZE / 2.0, ICON_SIZE / 2.0);
         return canvas;
     }
 

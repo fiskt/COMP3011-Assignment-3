@@ -1,5 +1,6 @@
 package comp3011;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -10,16 +11,35 @@ import java.awt.image.BufferedImage;
 
 import org.bytedeco.javacv.Frame;
 
+import java.awt.Shape;
+import java.awt.font.GlyphVector;
+import java.awt.RenderingHints;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class FrameSubtitler extends FrameProcessor {
+    private static final int MAX_CHARS = 42;
+    private static final int MAX_LINES = 2;
+
+    private volatile boolean enabled;
     private volatile SubtitleStore subtitleStore;
 
     public void setSubtitleStore(SubtitleStore s) {
         this.subtitleStore = s;
     }
 
+    public void setEnabled(boolean e) {
+        this.enabled = e;
+    }
+
+    public boolean getEnabled() {
+        return enabled;
+    }
+
     @Override 
     public void process(Frame frame, InfoFrame info) throws Exception {
+        if (!enabled) return;
         if (frame.image == null || frame.image.length == 0 || frame.image[0] == null) return;
         if (subtitleStore == null) return;
 
@@ -30,31 +50,99 @@ public class FrameSubtitler extends FrameProcessor {
         String text = subtitleStore.activeSubtitleAt(info.timestampUs());
         if (text == null) return;
 
-        BufferedImage textImage = renderText(text);
+        List<String> lines = wrapText(text);
+        BufferedImage textImage = renderText(lines);
         compositeOntoFrame(pixels, textImage);
     }
 
+    private List<String> wrapText(String text) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder currentLine = new StringBuilder();
+
+        // trim() to remove leading/trailing whitespace
+        // split("\\s+") to split the text into an array of words
+        String[] words = text.trim().split("\\s+");
+
+        for (String word : words) {
+            // If its a new line, dont count an extra space,
+            // if not new line, count 1 extra space at the front of the word
+            int leadSpace = (currentLine.isEmpty()) 
+                ? 0 
+                : 1;
+
+            // If the line exceeds the limit after adding the new word, make a new line
+            if (currentLine.length() + leadSpace + word.length() > MAX_CHARS) {
+                // Add currentLine to the lines list and reset currentLine
+                lines.add(currentLine.toString());
+                currentLine = new StringBuilder();
+                if (lines.size() == MAX_LINES) break;
+            }
+
+            // Add a leading space if the word isnt the head of a new line and add the word
+            if (!currentLine.isEmpty()) currentLine.append(' ');
+            currentLine.append(word);
+        }
+
+        if (!currentLine.isEmpty() && lines.size() < MAX_LINES) lines.add(currentLine.toString());
+
+        return lines;
+    }
+
     // AI assisted (Claude)
-    private BufferedImage renderText(String text) {
-        Font font = new Font(Font.SANS_SERIF, Font.BOLD, 24);
+    private BufferedImage renderText(List<String> lines) {
+        Font font = new Font(Font.SANS_SERIF, Font.PLAIN, 24);
  
         BufferedImage measuring = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         Graphics2D measuringGraphics = measuring.createGraphics();
         measuringGraphics.setFont(font);
         FontMetrics metrics = measuringGraphics.getFontMetrics();
-        int textWidth = metrics.stringWidth(text);
-        int textHeight = metrics.getHeight();
+ 
+        int maxLineWidth = 0;
+        for (String line : lines) {
+            maxLineWidth = Math.max(maxLineWidth, metrics.stringWidth(line));
+        }
+        int lineHeight = metrics.getHeight();
+        int imageWidth = maxLineWidth;
+        int imageHeight = lineHeight * lines.size();
         measuringGraphics.dispose();
  
         BufferedImage image = new BufferedImage(
-                Math.max(1, textWidth), Math.max(1, textHeight), BufferedImage.TYPE_INT_ARGB);
+                Math.max(1, imageWidth), Math.max(1, imageHeight), BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
+
+        // Source - https://stackoverflow.com/a/35222059
+        // Posted by Eddo
+        // Retrieved 2026-11-01, License - CC BY-SA 3.0
+        Color fillColor = Color.white;
+        Color outlineColor = Color.black;
+        BasicStroke outlineStroke = new BasicStroke(2.0f);
+
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setFont(font);
-        g.setColor(Color.WHITE);
-        g.drawString(text, 0, metrics.getAscent());
-        g.dispose();
+        g.setStroke(outlineStroke);
+
+        // getAscent() gets the distance from the font's baseline to the top of the tallest char
+        // Starting y here means the first line's letters are fully inside the image
+        int y = metrics.getAscent();
+        for (String line : lines) {
+            int x = (imageWidth - metrics.stringWidth(line)) / 2;
+
+            // Converts the line of text into a shape
+            GlyphVector glyphVector = font.createGlyphVector(g.getFontRenderContext(), line);
+            Shape textShape = glyphVector.getOutline(x, y); 
+
+            g.setColor(outlineColor);
+            g.draw(textShape);
+
+            g.setColor(fillColor);
+            g.fill(textShape); 
+
+            // Moves the baseline down by 1 whole line height
+            y += lineHeight;
+        }
  
         return image;
+
     }
 
     // AI assisted (Claude)
@@ -81,7 +169,7 @@ public class FrameSubtitler extends FrameProcessor {
                 int argb = textImage.getRGB(tx, ty);
                 int alpha = (argb >>> 24) & 0xFF;
                 if (alpha == 0) {
-                    continue; // nothing drawn here - leave the frame untouched
+                    continue;
                 }
  
                 int red = (argb >> 16) & 0xFF;
