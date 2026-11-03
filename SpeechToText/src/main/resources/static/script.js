@@ -17,7 +17,7 @@ async function sendAudio(recordedBlob) {
 
     try {
         // Send data to the Java endpoint
-        const response = await fetch("/api/v1/transcribe", {
+        const response = await fetch("/api/v1/audio/transcriptions", {
             method: "POST",
             body: data
         });

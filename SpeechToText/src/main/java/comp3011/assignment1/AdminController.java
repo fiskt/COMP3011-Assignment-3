@@ -2,6 +2,7 @@ package comp3011.assignment1;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.atomic.DoubleAdder;
 
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.ResponseEntity;
@@ -11,14 +12,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class AdminController {
-    // ref : https://stackoverflow.com/questions/12584992/how-to-get-current-server-time-in-java
+    // Source - https://stackoverflow.com/questions/12584992/how-to-get-current-server-time-in-java
     private final Instant serverStarttime = Instant.now();
     
-    // ref : https://stackoverflow.com/questions/56121514/sharing-an-instance-of-a-class-across-a-spring-boot-application
-    private final TokenCounter tokenCounter;
+    private final UsageTracker usageTracker;
     private final ConfigurableApplicationContext applicationContext;
-    public AdminController(TokenCounter tokenCounter, ConfigurableApplicationContext applicationContext) {
-        this.tokenCounter = tokenCounter;
+    public AdminController(UsageTracker usageTracker, ConfigurableApplicationContext applicationContext) {
+        this.usageTracker = usageTracker;
         this.applicationContext = applicationContext;
     }
     
@@ -34,9 +34,8 @@ public class AdminController {
         String message
     ) {}
 
-    private record GlobalStats(
-        long inputTokens,
-        long outputTokens
+    private record GlobalUsage(
+        double usageSeconds
     ) {}
 
     private record ErrorResponse(
@@ -138,28 +137,26 @@ public class AdminController {
         }
     }
 
-    @GetMapping("/api/v1/global/stats")
-    public ResponseEntity<?> getGlobalStats() {
+    @GetMapping("/api/v1/global/usage")
+    public ResponseEntity<?> getGlobalUsage() {
         try {
-            // Get the input and output tokens from the counter object
-            GlobalStats globalStats = new GlobalStats(
-                tokenCounter.getInputTokens(),
-                tokenCounter.getOutputTokens()
+            GlobalUsage globalUsage = new GlobalUsage(
+                usageTracker.getUsageSeconds()
             );
             return ResponseEntity
                 .status(200)
-                .body(globalStats);
+                .body(globalUsage);
         } catch (Exception e) {
-            ErrorResponse globalStatsError = new ErrorResponse(
-                Instant.now(), 
+            ErrorResponse globalUsageError = new ErrorResponse(
+                Instant.now(),
                 500, 
                 "Internal Server Error", 
-                "An unexpected server error occurred.", 
-                "/api/v1/global/stats"
+                "An unexpected server error occurred", 
+                "/api/v1/global/usage"
             );
             return ResponseEntity
                 .status(500)
-                .body(globalStatsError);
+                .body(globalUsageError);
         }
     }
 }

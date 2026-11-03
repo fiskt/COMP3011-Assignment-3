@@ -15,7 +15,7 @@ public class AudioController {
     }
 
     // Runs when a request to /api/v1/transcribe happens
-    @PostMapping("/api/v1/transcribe")
+    @PostMapping("/api/v1/audio/transcriptions")
     public String receivedAudio(
         // Take the "audio-file" object from incoming request
         // and store it in a MultipartFile variable
@@ -25,7 +25,12 @@ public class AudioController {
 
         // Call the transcribe function
         // Returns the actual transcription output when not testing
-        String output = transcriptionService.transcribe(file);
+        SubtitlesResponse response = transcriptionService.transcribe(file);
+        String output = "";
+        if (response.cues().isEmpty()) return "File was empty.";
+        for (SubtitlesResponse.Cue subtitle : response.cues()) {
+            output = output.concat(subtitle.text() + "\n");
+        }
         return output;
     }
 }
