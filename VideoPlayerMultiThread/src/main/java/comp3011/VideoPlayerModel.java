@@ -77,6 +77,8 @@ public class VideoPlayerModel {
     private JavaFXFrameConverter converter; // Takes Frame objects to JavaFX Image objects, which can be put on screen.
     private AudioPlayer audioPlayer; // This is ours. It has some real time buffering smarts.
     private PreparedFrame preparedFrame; // Ours, but is just an Image with some meta-data added.
+
+    private AudioExtractor audioExtractor;
     
     private volatile boolean playbackOpen; // True when playback is happening.
     private boolean pauseRequested;
@@ -135,6 +137,8 @@ public class VideoPlayerModel {
 
     private static int NO_FRAME_SET = -1;
     private volatile int nextFrameNumber = NO_FRAME_SET;
+
+    private volatile SubtitleStore fetchedSubtitleStore;
 
     // FrameBleed and FrameMottler uses shared variables that break the player when
     // multiple threads try to access the shared arrays
@@ -371,6 +375,9 @@ public class VideoPlayerModel {
         videoFile = file;
         videoDurationUs = NO_SEEK_REQUEST;
         videoFrameDurationUs = 0;
+
+        Thread 
+
         startPlayback(0, false, NO_SEEK_REQUEST);
     }
 
