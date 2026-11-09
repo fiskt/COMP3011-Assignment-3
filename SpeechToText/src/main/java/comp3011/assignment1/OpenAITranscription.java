@@ -18,6 +18,7 @@ import com.openai.core.MultipartField;
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.openai.models.audio.transcriptions.TranscriptionSegment;
 import com.openai.models.audio.transcriptions.TranscriptionVerbose;
+import com.openai.models.audio.transcriptions.TranscriptionWord;
 import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
 
 import com.openai.models.audio.AudioResponseFormat;
@@ -59,7 +60,6 @@ public class OpenAITranscription implements TranscriptionService {
     public SubtitlesResponse transcribe(MultipartFile file) throws Exception {
         if (file.isEmpty()) return new SubtitlesResponse(List.of());
 
-        // Source - https://github.com/openai/openai-java
         MultipartField<InputStream> audioFile =
             MultipartField.<InputStream>builder()
                 .value(file.getInputStream())
@@ -75,8 +75,6 @@ public class OpenAITranscription implements TranscriptionService {
                 TranscriptionCreateParams.builder()
                     .file(audioFile)
                     .model("whisper-1")
-                    // AI assisted (Claude) and
-                    // Source - https://github.com/openai/openai-java/blob/main/openai-java-core/src/main/kotlin/com/openai/models/audio/AudioResponseFormat.kt
                     .responseFormat(AudioResponseFormat.VERBOSE_JSON)
                     .timestampGranularities(List.of(
                         TranscriptionCreateParams.TimestampGranularity.WORD,
@@ -84,25 +82,60 @@ public class OpenAITranscription implements TranscriptionService {
                     .build()
                 );
 
-        // AI assisted (Claude) and
-        // Source - https://github.com/openai/openai-java/blob/main/openai-java-core/src/main/kotlin/com/openai/models/audio/transcriptions/TranscriptionSegment.kt
         TranscriptionVerbose verbose = result.asVerbose();
-        List<SubtitlesResponse.Cue> rawCues = new ArrayList<>();
-        for (TranscriptionSegment segment : verbose.segments().orElse(List.of())) {
-            boolean noDisplay = segment.noSpeechProb() > 0.6 && segment.avgLogprob() < -1.0;
-            if (noDisplay) continue;
+        List<TranscriptionSegment> segments = verbose.segments().orElse(List.of());
+        List<TranscriptionWord> words = verbose.words().orElse(List.of());
+        int wordIndex = 0;
 
-            SubtitlesResponse.Cue subtitleCue = new SubtitlesResponse.Cue(
-                segment.text().trim(),
-                segment.start(),
-                segment.end()
-            );
-            rawCues.add(subtitleCue);
+        List<SubtitlesResponse.Cue> subtitleWords = new ArrayList<>();
+
+        for (TranscriptionSegment segment : segments) {
+            boolean skipSegment = segment.noSpeechProb() > 0.6 && segment.avgLogprob() < -1.0;
+
+            // Find the actual first/last spoken word within this segment's range,
+            // so we can trim off any silence padding segment.start()/end() include
+            double effectiveStart = segment.start();
+            double effectiveEnd = segment.end();
+            boolean foundWord = false;
+            while (wordIndex < words.size() && words.get(wordIndex).start() < segment.end()) {
+                TranscriptionWord word = words.get(wordIndex);
+                if (!foundWord) {
+                    effectiveStart = word.start();
+                    foundWord = true;
+                }
+                effectiveEnd = word.end();
+                wordIndex++;
+            }
+
+            if (skipSegment) continue;
+
+            // Split the segment's own punctuated text into individual words (tokens)
+            String[] tokens = segment.text().trim().split("\\s+");
+            if (tokens.length == 0) continue;
+
+            double segmentDuration = effectiveEnd - effectiveStart;
+
+            // Total characters in the segment, used to weight each token's
+            // share of the segment duration
+            int totalChars = 0;
+            for (String token : tokens) totalChars += token.length();
+
+            // Walk through the segment's time window, giving each token time
+            // proportional to its length to approximate per-word timestamps
+            double currentTimestamp = effectiveStart;
+            for (String token : tokens) {
+                double share = (totalChars == 0)
+                    ? segmentDuration / tokens.length
+                    : segmentDuration * ((double) token.length() / totalChars);
+                double wordStart = currentTimestamp;
+                double wordEnd = currentTimestamp + share;
+                currentTimestamp = wordEnd;
+
+                subtitleWords.add(new SubtitlesResponse.Cue(token, wordStart, wordEnd));
+            }
         }
 
         usageTracker.addSeconds(verbose.duration());
-
-        
-        return new SubtitlesResponse(rawCues);
+        return new SubtitlesResponse(subtitleWords);
     }
 }

@@ -58,33 +58,24 @@ public class FrameSubtitler extends FrameProcessor {
     private List<String> wrapText(String text) {
         List<String> lines = new ArrayList<>();
         StringBuilder currentLine = new StringBuilder();
-
-        // trim() to remove leading/trailing whitespace
-        // split("\\s+") to split the text into an array of words
         String[] words = text.trim().split("\\s+");
 
         for (String word : words) {
-            // If its a new line, dont count an extra space,
-            // if not new line, count 1 extra space at the front of the word
-            int leadSpace = (currentLine.isEmpty()) 
-                ? 0 
-                : 1;
+            int leadSpace = currentLine.isEmpty() ? 0 : 1;
+            boolean onLastLine = (lines.size() == MAX_LINES - 1);
 
-            // If the line exceeds the limit after adding the new word, make a new line
-            if (currentLine.length() + leadSpace + word.length() > MAX_CHARS) {
-                // Add currentLine to the lines list and reset currentLine
+            // Only wrap to a new line if we haven't used up our line budget yet.
+            // On the last line, keep appending rather than dropping overflow.
+            if (!onLastLine && currentLine.length() + leadSpace + word.length() > MAX_CHARS) {
                 lines.add(currentLine.toString());
                 currentLine = new StringBuilder();
-                if (lines.size() == MAX_LINES) break;
             }
 
-            // Add a leading space if the word isnt the head of a new line and add the word
             if (!currentLine.isEmpty()) currentLine.append(' ');
             currentLine.append(word);
         }
 
-        if (!currentLine.isEmpty() && lines.size() < MAX_LINES) lines.add(currentLine.toString());
-
+        if (!currentLine.isEmpty()) lines.add(currentLine.toString());
         return lines;
     }
 

@@ -25,9 +25,14 @@ public class SubtitleStore {
 
     private final List<Subtitle> subtitles;
     private static final String API_URL = "http://localhost:8080/api/v1/audio/transcriptions";
+    private static final int MAX_CHARS = 84;
 
     public SubtitleStore(List<Subtitle> subtitles) {
         this.subtitles = subtitles;
+    }
+
+    public List<Subtitle> getSubtitles() {
+        return subtitles;
     }
 
     public String activeSubtitleAt(long timestampUs) {
@@ -64,9 +69,6 @@ public class SubtitleStore {
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-        System.out.println("Status: " + response.statusCode());
-        System.out.println("Body: " + response.body());
-
         List<Subtitle> subtitles = parseSubtitleResponse(response);
         return new SubtitleStore(subtitles);
     }
@@ -74,6 +76,7 @@ public class SubtitleStore {
     // AI assisted (Claude)
     private static List<Subtitle> parseSubtitleResponse(HttpResponse<String> response) {
         List<Subtitle> subtitles = new ArrayList<>();
+        List<Subtitle> currentSentence = new ArrayList<>();
 
         JSONObject json = new JSONObject(response.body());
         JSONArray cues = json.getJSONArray("cues");
@@ -87,9 +90,66 @@ public class SubtitleStore {
             long startTimeUs = (long) (startSeconds * 1_000_000);
             long endTimeUs = (long) (endSeconds * 1_000_000);
 
-            subtitles.add(new Subtitle(text, startTimeUs, endTimeUs));
+            currentSentence.add(new Subtitle(text, startTimeUs, endTimeUs));
+
+            if (text.endsWith(".") || text.endsWith("?") || text.endsWith("!")) {
+                // add the list of sentences
+                subtitles.addAll(buildSentence(currentSentence));
+                currentSentence = new ArrayList<>();
+            }
+        }
+
+        if (!currentSentence.isEmpty()) {
+            subtitles.addAll(buildSentence(currentSentence));
         }
 
         return subtitles;
+    }
+
+    private static List<Subtitle> buildSentence(List<Subtitle> subtitleWords) {
+        List<Subtitle> subtitleSentences = new ArrayList<>();
+        List<Subtitle> currentSegment = new ArrayList<>();
+        int currentNumChar = 0;
+
+        for (Subtitle word : subtitleWords) {
+            int wordLen = word.text().length();
+            int extraLen = (currentSegment.isEmpty()) 
+                ? wordLen 
+                : wordLen + 1;  // +1 char for leading space if not new segment
+
+            // If the segment can't fit the current word
+            if (currentNumChar + extraLen > MAX_CHARS && !currentSegment.isEmpty()) {
+                // Build the segment and set the start and end times
+                subtitleSentences.add(buildSegment(currentSegment));
+                currentSegment = new ArrayList<>();
+                currentNumChar = 0;
+
+                // word will be the start of a new segment, so numChars is just wordLen (no spaces)
+                extraLen = wordLen; 
+            }
+
+            currentSegment.add(word);
+            currentNumChar += extraLen;
+        }
+
+        if (!currentSegment.isEmpty()) {
+            subtitleSentences.add(buildSegment(currentSegment));
+        }
+
+        return subtitleSentences;
+    }
+
+    private static Subtitle buildSegment(List<Subtitle> segment) {
+        StringBuilder text = new StringBuilder();
+
+        // Build the phrase with the segment words, adding a leading space
+        // if its not the start of the sentence
+        for (Subtitle word : segment) {
+            if (text.length() > 0) text.append(' ');
+            text.append(word.text());
+        }
+        long start = segment.get(0).startTimeUs();
+        long end = segment.get(segment.size() - 1).endTimeUs();
+        return new Subtitle(text.toString(), start, end);
     }
 }

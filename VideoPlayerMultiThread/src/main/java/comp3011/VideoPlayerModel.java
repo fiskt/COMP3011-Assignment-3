@@ -384,8 +384,6 @@ public class VideoPlayerModel {
         fetchSubtitleThread.setDaemon(true);
         fetchSubtitleThread.start();
 
-        // TODO: fix -S after video path freezing video
-        // TODO: fix long sentence cutoff
         // TODO: fix "no video selected" at player launch
     }
 
