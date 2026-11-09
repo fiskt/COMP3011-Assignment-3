@@ -77,8 +77,6 @@ public class VideoPlayerModel {
     private JavaFXFrameConverter converter; // Takes Frame objects to JavaFX Image objects, which can be put on screen.
     private AudioPlayer audioPlayer; // This is ours. It has some real time buffering smarts.
     private PreparedFrame preparedFrame; // Ours, but is just an Image with some meta-data added.
-
-    private AudioExtractor audioExtractor;
     
     private volatile boolean playbackOpen; // True when playback is happening.
     private boolean pauseRequested;
@@ -298,22 +296,11 @@ public class VideoPlayerModel {
     }
 
     private void setupSubtitler() {
-        System.out.println("setupSubtitler called");
         for (FrameProcessor fp : frameProcessors) {
             if (fp instanceof FrameSubtitler subtitler) {
-                System.out.println("Found subtitler option");
-                subtitler.setSubtitleStore(getSubtitles(videoFile));
+                subtitler.setSubtitleStore(fetchedSubtitleStore);
             }
         }
-    }
-
-    private SubtitleStore getSubtitles(File videoFile) {
-        System.out.println("getSubtitles called");
-        return new SubtitleStore(List.of(
-            new SubtitleStore.Subtitle("Test test test subtitle this is too long to fit on a single line", 0, 12_000_000),
-            new SubtitleStore.Subtitle("Seconnd subtitle, this fits on 1 line", 12_000_000, 16_000_000),
-            new SubtitleStore.Subtitle("Subtitles are now rendering.", 16_000_000, 29_000_000)
-        ));
     }
 
     public VideoPlayerModel(
@@ -376,9 +363,30 @@ public class VideoPlayerModel {
         videoDurationUs = NO_SEEK_REQUEST;
         videoFrameDurationUs = 0;
 
-        Thread 
+        // AI assisted (Claude)
+        Thread fetchSubtitleThread = new Thread(() -> {
+            SubtitleStore subtitleStore = null;
+            try {
+                File audioFile = AudioExtractor.extractAudio(file);
+                if (audioFile != null) {
+                    subtitleStore = SubtitleStore.fetchSubtitles(audioFile);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
 
-        startPlayback(0, false, NO_SEEK_REQUEST);
+            final SubtitleStore subtitleResult = subtitleStore;
+            Platform.runLater(() -> {
+                fetchedSubtitleStore = subtitleResult;
+                startPlayback(0, false, NO_SEEK_REQUEST);
+            });
+        });
+        fetchSubtitleThread.setDaemon(true);
+        fetchSubtitleThread.start();
+
+        // TODO: fix -S after video path freezing video
+        // TODO: fix long sentence cutoff
+        // TODO: fix "no video selected" at player launch
     }
 
     public void startOver() {
