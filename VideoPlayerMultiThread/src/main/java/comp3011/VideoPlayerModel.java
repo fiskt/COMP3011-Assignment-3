@@ -20,8 +20,10 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import javafx.util.Duration;
 
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
@@ -30,6 +32,7 @@ import org.bytedeco.javacv.JavaFXFrameConverter;
 
 import comp3011.CommandLineController.FPOptions;
 import javafx.animation.AnimationTimer;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.image.Image;
 
@@ -362,10 +365,33 @@ public class VideoPlayerModel {
         videoFile = file;
         videoDurationUs = NO_SEEK_REQUEST;
         videoFrameDurationUs = 0;
+        fetchedSubtitleStore = null;
+
+        // Change the "no video loaded" to the file name,
+        // without this, the video name isn't loaded until startPlayback() 
+        notifyStatusChanged(file.getName());
+
+        // AtomicBoolean used to stop timeout and fetch trying to start playback
+        // at the same time
+        AtomicBoolean playbackStarted = new AtomicBoolean(false);
 
         // AI assisted (Claude)
+        // Give the fetching a 15 second head start, start playing the video after
+        // even if the subtitles aren't done
+        PauseTransition startTimeout = new PauseTransition(Duration.seconds(15));
+        startTimeout.setOnFinished(e -> {
+            // Start playback once the timeout is over
+            if (playbackStarted.compareAndSet(false, true)) {
+                startPlayback(0, false, NO_SEEK_REQUEST);
+            }
+        });
+        startTimeout.play();
+
+        // AI assisted (Claude)
+        // Start fetching subtitles
         Thread fetchSubtitleThread = new Thread(() -> {
             SubtitleStore subtitleStore = null;
+            // Fetch the subtitles
             try {
                 File audioFile = AudioExtractor.extractAudio(file);
                 if (audioFile != null) {
@@ -376,15 +402,23 @@ public class VideoPlayerModel {
             }
 
             final SubtitleStore subtitleResult = subtitleStore;
+
+            // Runs if the fetch finishes before the timeout ends
             Platform.runLater(() -> {
+                if (videoFile != file) return;
                 fetchedSubtitleStore = subtitleResult;
-                startPlayback(0, false, NO_SEEK_REQUEST);
+
+                // Start playback if the timeout hasn't ended
+                if (playbackStarted.compareAndSet(false, true)) {
+                    startTimeout.stop();
+                    startPlayback(0, false, NO_SEEK_REQUEST);
+                } else {
+                    setupSubtitler();
+                }
             });
         });
         fetchSubtitleThread.setDaemon(true);
         fetchSubtitleThread.start();
-
-        // TODO: fix "no video selected" at player launch
     }
 
     public void startOver() {
