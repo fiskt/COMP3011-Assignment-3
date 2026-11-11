@@ -79,62 +79,33 @@ public class OpenAITranscription implements TranscriptionService {
                         TranscriptionCreateParams.TimestampGranularity.WORD,
                         TranscriptionCreateParams.TimestampGranularity.SEGMENT))
                     .build()
-                );
+            );
 
         TranscriptionVerbose verbose = result.asVerbose();
         List<TranscriptionSegment> segments = verbose.segments().orElse(List.of());
         List<TranscriptionWord> words = verbose.words().orElse(List.of());
+        List<SubtitlesResponse.Cue> subtitleWords = new ArrayList<>();
         int wordIndex = 0;
 
-        List<SubtitlesResponse.Cue> subtitleWords = new ArrayList<>();
-
-        // AI assisted (Claude)
         for (TranscriptionSegment segment : segments) {
             boolean skipSegment = segment.noSpeechProb() > 0.6 && segment.avgLogprob() < -1.0;
 
-            // Find the actual first/last spoken word within this segment's range,
-            // so we can trim off any silence padding segment.start()/end() include
-            double effectiveStart = segment.start();
-            double effectiveEnd = segment.end();
-            boolean foundWord = false;
-            while (wordIndex < words.size() && words.get(wordIndex).start() < segment.end()) {
-                TranscriptionWord word = words.get(wordIndex);
-                if (!foundWord) {
-                    effectiveStart = word.start();
-                    foundWord = true;
-                }
-                effectiveEnd = word.end();
+            String[] segmentWords = segment.text().trim().split("\\s+");
+            int segmentWordCount = segmentWords.length;
+            List<SubtitlesResponse.Cue> parsedSegmentWords = new ArrayList<>();
+
+            for (int curr = 0; curr < segmentWordCount; curr++) {
+                double wordStart = words.get(wordIndex).start();
+                double wordEnd = words.get(wordIndex).end();
+                String word = segmentWords[curr];
+
+                parsedSegmentWords.add(new SubtitlesResponse.Cue(word, wordStart, wordEnd));
                 wordIndex++;
             }
 
             if (skipSegment) continue;
-
-            // Split the segment's own punctuated text into individual words (tokens)
-            String[] tokens = segment.text().trim().split("\\s+");
-            if (tokens.length == 0) continue;
-
-            double segmentDuration = effectiveEnd - effectiveStart;
-
-            // Total characters in the segment, used to weight each token's
-            // share of the segment duration
-            int totalChars = 0;
-            for (String token : tokens) totalChars += token.length();
-
-            // Walk through the segment's time window, giving each token time
-            // proportional to its length to approximate per-word timestamps
-            double currentTimestamp = effectiveStart;
-            for (String token : tokens) {
-                double share = (totalChars == 0)
-                    ? segmentDuration / tokens.length
-                    : segmentDuration * ((double) token.length() / totalChars);
-                double wordStart = currentTimestamp;
-                double wordEnd = currentTimestamp + share;
-                currentTimestamp = wordEnd;
-
-                subtitleWords.add(new SubtitlesResponse.Cue(token, wordStart, wordEnd));
-            }
+            subtitleWords.addAll(parsedSegmentWords);
         }
-
         usageTracker.addSeconds(verbose.duration());
         return new SubtitlesResponse(subtitleWords);
     }
