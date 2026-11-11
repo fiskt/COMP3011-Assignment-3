@@ -26,6 +26,7 @@ public class SubtitleStore {
     private final List<Subtitle> subtitles;
     private static final String API_URL = "http://localhost:8080/api/v1/audio/transcriptions";
     private static final int MAX_CHARS = 84;
+    private static final long PAUSE_THRESHOLD_US = 100_000;
 
     public SubtitleStore(List<Subtitle> subtitles) {
         this.subtitles = subtitles;
@@ -87,13 +88,27 @@ public class SubtitleStore {
             double startSeconds = cue.getDouble("startTime");
             double endSeconds = cue.getDouble("endTime");
 
+            // Convert to microsecond
             long startTimeUs = (long) (startSeconds * 1_000_000);
             long endTimeUs = (long) (endSeconds * 1_000_000);
 
+            // Check if there is a pause in the current sentence
+            if (!currentSentence.isEmpty()) {
+                long previousEndTimeUs = currentSentence.getLast().endTimeUs();
+
+                // If the pause is longer than the threshold, add the current segment 
+                // and reset currentSentence
+                if (startTimeUs - previousEndTimeUs > PAUSE_THRESHOLD_US) {
+                    subtitles.addAll(buildSentence(currentSentence));
+                    currentSentence = new ArrayList<>();
+                }
+            }
+
+            // Add the next word
             currentSentence.add(new Subtitle(text, startTimeUs, endTimeUs));
 
+            // Build the sentence if there is punctuation
             if (text.endsWith(".") || text.endsWith("?") || text.endsWith("!")) {
-                // add the list of sentences
                 subtitles.addAll(buildSentence(currentSentence));
                 currentSentence = new ArrayList<>();
             }
@@ -150,6 +165,11 @@ public class SubtitleStore {
         }
         long start = segment.get(0).startTimeUs();
         long end = segment.get(segment.size() - 1).endTimeUs();
+
+        // If duration < 1 second, make duration 1 second
+        // If duration > 7 seconds, cap it at 7
+        if (end - start < 1_000_000) end = start + 1_000_000;
+        if (end - start > 7_000_000) end = start + 7_000_000;
         return new Subtitle(text.toString(), start, end);
     }
 }

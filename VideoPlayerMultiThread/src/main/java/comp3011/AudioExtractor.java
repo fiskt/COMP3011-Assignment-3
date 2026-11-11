@@ -22,7 +22,8 @@ public class AudioExtractor {
             return null;
         }
 
-        // AI assisted (Claude)
+        // AI assisted (Claude) and
+        // Source - https://bytedeco.org/javacv/apidocs/org/bytedeco/javacv/FFmpegFrameRecorder.html
         FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(audioFile, grabber.getAudioChannels());
         recorder.setFormat("wav");
         recorder.setSampleRate(grabber.getSampleRate());

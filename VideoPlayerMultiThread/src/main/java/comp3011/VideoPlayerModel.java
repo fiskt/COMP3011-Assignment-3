@@ -378,7 +378,7 @@ public class VideoPlayerModel {
         // AI assisted (Claude)
         // Give the fetching a 15 second head start, start playing the video after
         // even if the subtitles aren't done
-        PauseTransition startTimeout = new PauseTransition(Duration.seconds(15));
+        PauseTransition startTimeout = new PauseTransition(Duration.seconds(10));
         startTimeout.setOnFinished(e -> {
             // Start playback once the timeout is over
             if (playbackStarted.compareAndSet(false, true)) {

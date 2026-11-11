@@ -47,7 +47,6 @@ public class OpenAITranscription implements TranscriptionService {
         throw new IllegalStateException("No OpenAI key found.");
     }
 
-    // AI assisted (Claude)
     private static OpenAIClient buildClient() throws IOException {
         return OpenAIOkHttpClient.builder()
                 .fromEnv()
@@ -89,6 +88,7 @@ public class OpenAITranscription implements TranscriptionService {
 
         List<SubtitlesResponse.Cue> subtitleWords = new ArrayList<>();
 
+        // AI assisted (Claude)
         for (TranscriptionSegment segment : segments) {
             boolean skipSegment = segment.noSpeechProb() > 0.6 && segment.avgLogprob() < -1.0;
 
