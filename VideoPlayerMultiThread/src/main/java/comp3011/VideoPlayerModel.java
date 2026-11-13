@@ -564,7 +564,11 @@ public class VideoPlayerModel {
         grabber = new FFmpegFrameGrabber(videoFile);
         grabber.setImageMode(FrameGrabber.ImageMode.COLOR);
         grabber.setSampleMode(FrameGrabber.SampleMode.SHORT);
-        grabber.start();
+
+        // AI assisted (Claude)
+        synchronized (AudioExtractor.NATIVE_OPEN_LOCK) {
+            grabber.start();
+        }
 
         notifyVideoSizeChanged(grabber.getImageWidth(), grabber.getImageHeight());
 

@@ -26,7 +26,7 @@ public class SubtitleStore {
     private final List<Subtitle> subtitles;
     private static final String API_URL = "http://localhost:8080/api/v1/audio/transcriptions";
     private static final int MAX_CHARS = 84;
-    private static final long PAUSE_THRESHOLD_US = 700_000;
+    private static final long PAUSE_THRESHOLD_US = 600_000;
 
     public SubtitleStore(List<Subtitle> subtitles) {
         this.subtitles = subtitles;

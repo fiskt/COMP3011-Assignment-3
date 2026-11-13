@@ -12,6 +12,8 @@ package comp3011;
 
 import java.util.List;
 
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
@@ -147,6 +149,19 @@ public class VideoPlayerApp extends Application {
         if (!commandLineController.shouldLaunchApplication()) {
             System.exit(commandLineController.getExitCode());
         }
+
+        // AI assisted (Claude)
+        // Load FFmpeg libraries in the background
+        Thread warmUpThread = new Thread(() -> {
+            try {
+                FFmpegFrameGrabber.tryLoad();
+            } catch (Exception e) {
+                // Ignore here - if native loading genuinely fails, the real
+                // grabber.start() call inside play() will surface the actual error.
+            }
+        });
+        warmUpThread.setDaemon(true);
+        warmUpThread.start();
 
         launch(args);
     }

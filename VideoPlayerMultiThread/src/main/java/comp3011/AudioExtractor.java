@@ -8,6 +8,9 @@ import org.bytedeco.javacv.FFmpegFrameRecorder;
 import org.bytedeco.javacv.Frame;
 
 public class AudioExtractor {
+    // AI assisted (Claude)
+    public static final Object NATIVE_OPEN_LOCK = new Object();
+
     public static File extractAudio(File videoFile) throws Exception {
         File audioFile = File.createTempFile("audio", ".wav");
         audioFile.deleteOnExit();
@@ -28,7 +31,9 @@ public class AudioExtractor {
         recorder.setFormat("wav");
         recorder.setSampleRate(grabber.getSampleRate());
         recorder.setAudioCodec(avcodec.AV_CODEC_ID_PCM_S16LE);
-        recorder.start();
+        synchronized (NATIVE_OPEN_LOCK) {
+            recorder.start();
+        }
 
         Frame audioFrame;
         while ((audioFrame = grabber.grabSamples()) != null) {
