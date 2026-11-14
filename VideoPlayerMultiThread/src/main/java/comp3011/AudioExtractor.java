@@ -16,7 +16,9 @@ public class AudioExtractor {
         audioFile.deleteOnExit();
 
         FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile);
-        grabber.start();
+        synchronized (NATIVE_OPEN_LOCK) {
+            grabber.start();
+        }
 
         if (!grabber.hasAudio()) {
             grabber.stop();

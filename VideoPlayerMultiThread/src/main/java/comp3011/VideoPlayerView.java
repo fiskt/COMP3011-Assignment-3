@@ -72,9 +72,6 @@ public class VideoPlayerView {
         videoPane.setStyle("-fx-background-color: black;");
         videoPane.setMinSize(0, 0);
         videoPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        
-        videoPane.setPrefSize(960, 540);
-
         imageView.fitWidthProperty().bind(videoPane.widthProperty());
         imageView.fitHeightProperty().bind(videoPane.heightProperty());
 
@@ -83,7 +80,7 @@ public class VideoPlayerView {
         pausePlayButton = iconButton(createPauseIcon());
         forwardFiveButton = iconButton(createLoopIcon(true, "5"));
         stopButton = iconButton(createStopIcon());
-        subtitleButton = iconButton(createSubtitleIcon());
+        subtitleButton = iconButton(createSubtitleIcon(true));
         audioButton = iconButton(createAudioIcon(false));
         setPlaybackControlsDisabled(true);
 
@@ -323,7 +320,11 @@ public class VideoPlayerView {
         return canvas;
     }
 
-    private Canvas createSubtitleIcon() {
+    public void showSubtitlesEnabled(boolean enabled) {
+        subtitleButton.setGraphic(createSubtitleIcon(enabled));
+    }
+
+    private Canvas createSubtitleIcon(boolean enabled) {
         Canvas canvas = new Canvas(ICON_SIZE, ICON_SIZE);
         GraphicsContext gc = canvas.getGraphicsContext2D();
         // Source - https://stackoverflow.com/a/64384851
@@ -334,6 +335,14 @@ public class VideoPlayerView {
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
         gc.fillText("CC", ICON_SIZE / 2.0, ICON_SIZE / 2.0);
+
+        if (!enabled) {
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(2.0);
+            gc.setLineCap(StrokeLineCap.ROUND);
+            gc.strokeLine(5, 23, 23, 5);
+        }
+
         return canvas;
     }
 

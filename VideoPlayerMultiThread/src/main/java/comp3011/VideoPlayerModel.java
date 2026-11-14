@@ -59,6 +59,7 @@ public class VideoPlayerModel {
     private final Consumer<String> statusChangedHandler;
     private final BiConsumer<Boolean, Boolean> playbackStateChangedHandler;
     private final Consumer<Boolean> audioOutputStateChangedHandler;
+    private final Consumer<Boolean> subtitleStateChangedHandler;
 
     // This is the critical wiring that allows the framework (JavaFX) to call
     // into our model logic every time it goes around its event loop. Every GUI
@@ -140,6 +141,7 @@ public class VideoPlayerModel {
     private volatile int nextFrameNumber = NO_FRAME_SET;
 
     private volatile SubtitleStore fetchedSubtitleStore;
+    private volatile boolean startPending;
 
     // FrameBleed and FrameMottler uses shared variables that break the player when
     // multiple threads try to access the shared arrays
@@ -314,13 +316,16 @@ public class VideoPlayerModel {
             Consumer<Image> frameReadyHandler,
             Consumer<String> statusChangedHandler,
             BiConsumer<Boolean, Boolean> playbackStateChangedHandler,
-            Consumer<Boolean> audioOutputStateChangedHandler) {
+            Consumer<Boolean> audioOutputStateChangedHandler,
+            Consumer<Boolean> subtitleStateChangedHandler
+        ) {
         audioOutputEnabled = audioEnabled;
         this.videoSizeChangedHandler = videoSizeChangedHandler;
         this.frameReadyHandler = frameReadyHandler;
         this.statusChangedHandler = statusChangedHandler;
         this.playbackStateChangedHandler = playbackStateChangedHandler;
         this.audioOutputStateChangedHandler = audioOutputStateChangedHandler;
+        this.subtitleStateChangedHandler = subtitleStateChangedHandler;
         this.frameProcessors = new ArrayList<>();
 
         // Loop through the frame processor list from 
@@ -336,6 +341,7 @@ public class VideoPlayerModel {
         // to be initially on
         boolean subtitleEnabledOnLaunch = frameProcessorOptions.contains(FPOptions.SUBTITLE_FRAMES);
         addSubtitler(subtitleEnabledOnLaunch);
+        notifySubtitleStateChanged(subtitleEnabledOnLaunch);
     }
 
     private void addSubtitler(boolean enabledOnLaunch) {
@@ -366,10 +372,32 @@ public class VideoPlayerModel {
         videoDurationUs = NO_SEEK_REQUEST;
         videoFrameDurationUs = 0;
         fetchedSubtitleStore = null;
+        startPending = true;
 
         // Change the "no video loaded" to the file name,
         // without this, the video name isn't loaded until startPlayback() 
         notifyStatusChanged(file.getName());
+
+        FFmpegFrameGrabber sizingGrabber = new FFmpegFrameGrabber(file);
+        try {
+            synchronized (AudioExtractor.NATIVE_OPEN_LOCK) {
+                sizingGrabber.start();
+            }
+            notifyVideoSizeChanged(sizingGrabber.getImageWidth(), sizingGrabber.getImageHeight());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                sizingGrabber.stop();
+            } catch (Exception e) {
+                // Discarding this grabber regardless.
+            }
+            try {
+                sizingGrabber.close();
+            } catch (Exception e) {
+                // Discarding this grabber regardless.
+            }
+        }
 
         // AtomicBoolean used to stop timeout and fetch trying to start playback
         // at the same time
@@ -382,6 +410,7 @@ public class VideoPlayerModel {
         startTimeout.setOnFinished(e -> {
             // Start playback once the timeout is over
             if (playbackStarted.compareAndSet(false, true)) {
+                startPending = false;
                 startPlayback(0, false, NO_SEEK_REQUEST);
             }
         });
@@ -411,6 +440,7 @@ public class VideoPlayerModel {
                 // Start playback if the timeout hasn't ended
                 if (playbackStarted.compareAndSet(false, true)) {
                     startTimeout.stop();
+                    startPending = false;
                     startPlayback(0, false, NO_SEEK_REQUEST);
                 } else {
                     setupSubtitler();
@@ -438,6 +468,7 @@ public class VideoPlayerModel {
     }
 
     public void togglePause() {
+        if (startPending) return;
         if (!playbackOpen) {
             if (videoFile != null) {
                 startPlayback(displayableSeekTimestamp(currentTimestampUs), false, currentTimestampUs);
@@ -458,11 +489,16 @@ public class VideoPlayerModel {
         notifyPlaybackStateChanged();
     }
 
+    private void notifySubtitleStateChanged(boolean enabled) {
+        subtitleStateChangedHandler.accept(enabled);
+    }
+
     public void toggleSubtitles() {
         for (FrameProcessor fp : frameProcessors) {
             if (fp instanceof FrameSubtitler subtitler) {
-                boolean currentState = subtitler.getEnabled();
-                subtitler.setEnabled(!currentState);
+                boolean newState = !subtitler.getEnabled();
+                subtitler.setEnabled(newState);
+                notifySubtitleStateChanged(newState);
             }
         }
     }
@@ -503,6 +539,7 @@ public class VideoPlayerModel {
     }
 
     private void seekTo(long timestampUs) {
+        if (startPending) return;
         long logicalTimestampUs = clampSeekTimestamp(timestampUs);
         long grabTimestampUs = displayableSeekTimestamp(logicalTimestampUs);
 

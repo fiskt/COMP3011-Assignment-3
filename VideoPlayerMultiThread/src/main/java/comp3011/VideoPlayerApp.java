@@ -121,6 +121,8 @@ public class VideoPlayerApp extends Application {
 
         controller.getView().setVideoDisplaySize(displayWidth, displayHeight);
         if (!stage.isMaximized()) {
+            stage.getScene().getRoot().applyCss();
+            stage.getScene().getRoot().layout();
             stage.sizeToScene();
             alignSceneToSelectedScreen();
         }
