@@ -1,13 +1,17 @@
 package comp3011.assignment1;
 
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.DoubleAdder;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,39 +23,44 @@ import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.openai.models.audio.transcriptions.TranscriptionSegment;
 import com.openai.models.audio.transcriptions.TranscriptionVerbose;
 import com.openai.models.audio.transcriptions.TranscriptionWord;
-import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
 
 import com.openai.models.audio.AudioResponseFormat;
 
 @Service
 @Profile("!test")
 public class OpenAITranscription implements TranscriptionService {
+    @Autowired
+    private String openAiApiKey;
+
     private final UsageTracker usageTracker;
 
-    private static final Path API_KEY_FILE = Path.of("key.txt");
+    // AI assisted (Claude)
+    // Keyed by a hash of the audio bytes, not filename so the same
+    // audio played twice, or played again after being renamed, is served
+    // from cache instead of calling transcribe again.
+    private final Map<String, SubtitlesResponse> cacheByContentHash = new ConcurrentHashMap<>();
+
 
     public OpenAITranscription(UsageTracker usageTracker) {
         this.usageTracker = usageTracker;
     }
 
-    // AI assisted (Claude)
-    private static String getKey() throws IOException {
-        if (Files.exists(API_KEY_FILE)) {
-            String key = Files.readString(API_KEY_FILE).trim();
-            if (!key.isEmpty()) return key;
-        }
-
-        String envKey = System.getenv("OPENAI_API_KEY");
-        if (envKey != null && !envKey.isBlank()) return envKey;
-
-        throw new IllegalStateException("No OpenAI key found.");
-    }
-
-    private static OpenAIClient buildClient() throws IOException {
+    private OpenAIClient buildClient() throws IOException {
         return OpenAIOkHttpClient.builder()
                 .fromEnv()
-                .apiKey(getKey())
+                .apiKey(openAiApiKey)
                 .build();
+    }
+
+    // AI assisted (Claude)
+    private static String hash(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(bytes));
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is always available on the standard Java platform.
+            throw new IllegalStateException(e);
+        }
     }
 
     // Override the transcription function with the actual OpenAI endpoint
@@ -59,9 +68,17 @@ public class OpenAITranscription implements TranscriptionService {
     public SubtitlesResponse transcribe(MultipartFile file) throws Exception {
         if (file.isEmpty()) return new SubtitlesResponse(List.of());
 
+        // AI assisted (Claude)
+        byte[] audioBytes = file.getBytes();
+        String contentHash = hash(audioBytes);
+        SubtitlesResponse cached = cacheByContentHash.get(contentHash);
+        if (cached != null) {
+            return cached;
+        }
+
         MultipartField<InputStream> audioFile =
             MultipartField.<InputStream>builder()
-                .value(file.getInputStream())
+                .value(new ByteArrayInputStream(audioBytes))
                 .filename(file.getOriginalFilename())
                 .contentType(file.getContentType())
                 .build();
@@ -106,7 +123,11 @@ public class OpenAITranscription implements TranscriptionService {
             if (skipSegment) continue;
             subtitleWords.addAll(parsedSegmentWords);
         }
+        SubtitlesResponse response = new SubtitlesResponse(subtitleWords);
+
+        // Cache the whole file's subtitles keyed by the contentHash
+        cacheByContentHash.put(contentHash, response);
         usageTracker.addSeconds(verbose.duration());
-        return new SubtitlesResponse(subtitleWords);
+        return response;
     }
 }

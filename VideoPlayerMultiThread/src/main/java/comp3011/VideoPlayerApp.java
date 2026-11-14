@@ -156,12 +156,15 @@ public class VideoPlayerApp extends Application {
         // Load FFmpeg libraries in the background
         Thread warmUpThread = new Thread(() -> {
             try {
-                FFmpegFrameGrabber.tryLoad();
+                synchronized (AudioExtractor.NATIVE_OPEN_LOCK) {
+                    FFmpegFrameGrabber.tryLoad();
+                }
             } catch (Exception e) {
                 // Ignore here - if native loading genuinely fails, the real
                 // grabber.start() call inside play() will surface the actual error.
             }
         });
+        
         warmUpThread.setDaemon(true);
         warmUpThread.start();
 

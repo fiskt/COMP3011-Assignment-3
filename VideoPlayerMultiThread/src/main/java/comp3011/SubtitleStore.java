@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.Duration;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -27,6 +28,8 @@ public class SubtitleStore {
     private static final String API_URL = "http://localhost:8080/api/v1/audio/transcriptions";
     private static final int MAX_CHARS = 84;
     private static final long PAUSE_THRESHOLD_US = 600_000;
+    private static final int CLIENT_TIMEOUT = 5;
+    private static final int REQUEST_TIMEOUT = 60;
 
     public SubtitleStore(List<Subtitle> subtitles) {
         this.subtitles = subtitles;
@@ -48,7 +51,7 @@ public class SubtitleStore {
     }
 
     // AI assisted (Claude)
-    public static SubtitleStore fetchSubtitles(File audioFile) throws Exception{
+    public static SubtitleStore fetchSubtitles(File audioFile) throws Exception {
         String boundary = "----SubtitleBoundary" + System.currentTimeMillis();
         byte[] fileBytes = Files.readAllBytes(audioFile.toPath());
 
@@ -61,10 +64,14 @@ public class SubtitleStore {
         body.write(fileBytes);
         body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(CLIENT_TIMEOUT))
+            .build();
+
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create(API_URL))
             .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+            .timeout(Duration.ofSeconds(REQUEST_TIMEOUT))
             .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
             .build();
 

@@ -51,6 +51,7 @@ public class VideoPlayerModel {
     private static final long NO_SEEK_REQUEST = -1; // Sentinel value used when no seek position is active.
     private static final long FIVE_SECONDS_US = 5_000_000L;
     private static final long AUDIO_LEAD_NS = 30_000_000L;
+    private static final long FETCH_SUBTITLE_RETRY_MS = 10_000;
 
     private final List<FrameProcessor> frameProcessors;
     private final Queue<PendingAudio> pendingAudio = new ArrayDeque<>();
@@ -76,7 +77,7 @@ public class VideoPlayerModel {
         }
     };
 
-    private File videoFile; // Path to the media that comes from the command line
+    private volatile File videoFile; // Path to the media that comes from the command line
     private FFmpegFrameGrabber grabber; // This is the 3rd party video media decoder. It deals in JavaCV Frame objects.
     private JavaFXFrameConverter converter; // Takes Frame objects to JavaFX Image objects, which can be put on screen.
     private AudioPlayer audioPlayer; // This is ours. It has some real time buffering smarts.
@@ -419,25 +420,12 @@ public class VideoPlayerModel {
         // AI assisted (Claude)
         // Start fetching subtitles
         Thread fetchSubtitleThread = new Thread(() -> {
-            SubtitleStore subtitleStore = null;
-            // Fetch the subtitles
-            try {
-                File audioFile = AudioExtractor.extractAudio(file);
-                if (audioFile != null) {
-                    subtitleStore = SubtitleStore.fetchSubtitles(audioFile);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            SubtitleStore subtitleResult = fetchSubtitleRetry(file);
 
-            final SubtitleStore subtitleResult = subtitleStore;
-
-            // Runs if the fetch finishes before the timeout ends
             Platform.runLater(() -> {
                 if (videoFile != file) return;
                 fetchedSubtitleStore = subtitleResult;
 
-                // Start playback if the timeout hasn't ended
                 if (playbackStarted.compareAndSet(false, true)) {
                     startTimeout.stop();
                     startPending = false;
@@ -449,6 +437,35 @@ public class VideoPlayerModel {
         });
         fetchSubtitleThread.setDaemon(true);
         fetchSubtitleThread.start();
+    }
+
+    private SubtitleStore fetchSubtitleRetry(File file) {
+        File audioFile;
+        try {
+            audioFile = AudioExtractor.extractAudio(file);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+        if (audioFile == null) return null;
+
+        while (videoFile == file) {
+            try {
+                SubtitleStore store = SubtitleStore.fetchSubtitles(audioFile);
+                if (store != null) return store;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            try {
+                Thread.sleep(FETCH_SUBTITLE_RETRY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+
+        return null;
     }
 
     public void startOver() {
