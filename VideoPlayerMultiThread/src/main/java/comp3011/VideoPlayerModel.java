@@ -380,6 +380,7 @@ public class VideoPlayerModel {
         // without this, the video name isn't loaded until startPlayback() 
         notifyStatusChanged(file.getName());
 
+        // AI assisted (Claude)
         FFmpegFrameGrabber sizingGrabber = new FFmpegFrameGrabber(file);
         try {
             synchronized (AudioExtractor.NATIVE_OPEN_LOCK) {
@@ -406,7 +407,7 @@ public class VideoPlayerModel {
         AtomicBoolean playbackStarted = new AtomicBoolean(false);
 
         // AI assisted (Claude)
-        // Give the fetching a 15 second head start, start playing the video after
+        // Give the fetching a 10 second head start, start playing the video after
         // even if the subtitles aren't done
         PauseTransition startTimeout = new PauseTransition(Duration.seconds(10));
         startTimeout.setOnFinished(e -> {
