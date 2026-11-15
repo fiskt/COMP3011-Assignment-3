@@ -140,6 +140,7 @@ public class VideoPlayerModel {
 
     private static int NO_FRAME_SET = -1;
     private volatile int nextFrameNumber = NO_FRAME_SET;
+    private int lastReadFrameNumber;
 
     private volatile SubtitleStore fetchedSubtitleStore;
     private volatile boolean startPending;
@@ -742,9 +743,16 @@ public class VideoPlayerModel {
                     pauseStartedNs = playbackStartNs;
                 }
             }
+            
+            int frameNumber;
+            if (nextFrameNumber == NO_FRAME_SET) {
+                frameNumber = grabber.getFrameNumber();
+                nextFrameNumber = frameNumber;
+            } else {
+                frameNumber = lastReadFrameNumber + 1;
+            }
 
-            int frameNumber = grabber.getFrameNumber();
-            if (nextFrameNumber == NO_FRAME_SET) nextFrameNumber = frameNumber;
+            lastReadFrameNumber = frameNumber;
 
             InfoFrame info = new InfoFrame(frameNumber, timestampUs);
 

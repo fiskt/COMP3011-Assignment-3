@@ -17,10 +17,15 @@ import java.awt.RenderingHints;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FrameSubtitler extends FrameProcessor {
     private static final int MAX_CHARS = 42;
     private static final int MAX_LINES = 2;
+
+    private static final Object FONT_RENDER_LOCK = new Object();
+    private final Map<String, BufferedImage> renderedTextCache = new ConcurrentHashMap<>();
 
     private volatile boolean enabled;
     private volatile SubtitleStore subtitleStore;
@@ -50,8 +55,19 @@ public class FrameSubtitler extends FrameProcessor {
         String text = subtitleStore.activeSubtitleAt(info.timestampUs());
         if (text == null) return;
 
-        List<String> lines = wrapText(text);
-        BufferedImage textImage = renderText(lines);
+        BufferedImage textImage = renderedTextCache.get(text);
+        if (textImage == null) {
+            synchronized (FONT_RENDER_LOCK) {
+                // Another thread may have rendered this exact text while we
+                // were waiting for the lock - check again before redoing it.
+                textImage = renderedTextCache.get(text);
+                if (textImage == null) {
+                    textImage = renderText(wrapText(text));
+                    renderedTextCache.put(text, textImage);
+                }
+            }
+        }
+
         compositeOntoFrame(pixels, textImage);
     }
 
