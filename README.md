@@ -43,6 +43,7 @@ java -jar <jar_name>.jar --openai.key-file=/path/to/key.txt
 2. Start the video player
 
 ```Shell
+cd VideoPlayerMultiThread
 mvn javafx:run "-Djavafx.args=[options] <video-file>"
 ```
 
@@ -78,8 +79,6 @@ Frame processors are applied in command-line order and can be repeated.
 ```Shell
 # Play video.mp4 with subtitles and frame numbering
 mvn javafx:run "-Djavafx.args=movie.mp4 -Sn"
-
-# Toggle subtitles at runtime with the S key while playing
 ```
 
 ## Concurrency Design
@@ -90,6 +89,29 @@ In addition to the video player frame processing concurrency design, this projec
 * If the fetch request fails or connection cuts, it automatically retries at 10,000 ms intervals. `while (videoFile == file) ` ensures that the video file hasn't changed.
 * Server-side subtitle caching keyed by the audio content hash so playing identical audio (replayed or from a renamed file) pulls from the cache.
 
+## Testing
+
+Extended the video player command line and frame processor thread tests to include the frame subtitler.
+
+### Command Line & Frame Processor Thread Tests
+
+Command line tests check the options available in the Assignment 2 video player and the new subtitle options `-S` and `--subtitle-frames-`.
+
+Frame processor thread tests check that a `FrameSubtitler` instance is added, even if `-S` or `--subtitle-frames` wasn't in the launch command.
+
+```Shell
+cd VideoPlayerMultiThread
+mvn test
+```
+
+### Load Comparison Test
+
+The load comparison test is unchanged from Assignment 2. 
+
+```Shell
+cd VideoPlayerMultiThread
+mvn verify
+```
 
 ## Attribution
 

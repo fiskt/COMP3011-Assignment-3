@@ -29,8 +29,7 @@ class FrameProcessorThreadTest {
                 FPOptions.NUMBER_FRAMES,   // no thread sharing problem so should stay shared
                 FPOptions.MOTTLE_FRAMES,   // mottle 1: each thread needs its own instance of FrameMottler
                 FPOptions.BLEED_FRAMES,    // bleed 1: each thread needs its own instance of FrameBleeder
-                FPOptions.MOTTLE_FRAMES,   // mottle 2: each thread needs another local instance
-                FPOptions.SUBTITLE_FRAMES  // there is always a subtitle frames instance
+                FPOptions.MOTTLE_FRAMES    // mottle 2: each thread needs another local instance
         );
 
         VideoPlayerModel model = new VideoPlayerModel(
