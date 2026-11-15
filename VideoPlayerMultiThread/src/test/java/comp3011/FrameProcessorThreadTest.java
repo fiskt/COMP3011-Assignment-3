@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.util.List;
 
@@ -28,7 +29,8 @@ class FrameProcessorThreadTest {
                 FPOptions.NUMBER_FRAMES,   // no thread sharing problem so should stay shared
                 FPOptions.MOTTLE_FRAMES,   // mottle 1: each thread needs its own instance of FrameMottler
                 FPOptions.BLEED_FRAMES,    // bleed 1: each thread needs its own instance of FrameBleeder
-                FPOptions.MOTTLE_FRAMES    // mottle 2: each thread needs another local instance
+                FPOptions.MOTTLE_FRAMES,   // mottle 2: each thread needs another local instance
+                FPOptions.SUBTITLE_FRAMES  // there is always a subtitle frames instance
         );
 
         VideoPlayerModel model = new VideoPlayerModel(
@@ -37,14 +39,15 @@ class FrameProcessorThreadTest {
                 image -> {},
                 status -> {},
                 (playing, paused) -> {},
-                audioEnabled -> {});
+                audioEnabled -> {},
+                (subtitlesEnabled) -> {} );
 
         List<FrameProcessor> workerAProcessors = model.createWorkProcessors(TEST_VIDEO_INFO);
         List<FrameProcessor> workerBProcessors = model.createWorkProcessors(TEST_VIDEO_INFO);
 
         // Expecting each worker to have 4 processors:
         // number frames, local mottle frames 1, local bleed frames, local mottle frames 2
-        int expected = 4;
+        int expected = 5;
 
         assertEquals(expected, workerAProcessors.size());
         assertEquals(expected, workerBProcessors.size());
@@ -58,20 +61,16 @@ class FrameProcessorThreadTest {
         FrameMottler workerBMottle1 = (FrameMottler) workerBProcessors.get(1);
         assertNotSame(workerAMottle1, workerBMottle1);
 
-        // The separate thread instances at the same index must have the same instanceIndex
-        // so the pattern is identical 
         assertEquals(workerAMottle1.instanceIndex(), workerBMottle1.instanceIndex());
 
-        // Bleed frames need local instances because it reuses brightMask, horizontalBlurMask, blurredMask
-        // across calls, multiple threads calling process() on the same instance would overwrite 
-        // progress
         FrameBleeder workerABleed = (FrameBleeder) workerAProcessors.get(2);
         FrameBleeder workerBBleed = (FrameBleeder) workerBProcessors.get(2);
         assertNotSame(workerABleed, workerBBleed);
 
-        // Different mottle frame instances for a single thread can't have identical instanceIndex 
-        // because we want each instance of mottle frame to apply a distinct pattern
         FrameMottler workerAMottle2 = (FrameMottler) workerAProcessors.get(3);
         assertNotEquals(workerAMottle1.instanceIndex(), workerAMottle2.instanceIndex());
+
+        assertSame(workerAProcessors.get(4), workerBProcessors.get(4));
+        assertInstanceOf(FrameSubtitler.class, workerAProcessors.get(4));
     }
 }

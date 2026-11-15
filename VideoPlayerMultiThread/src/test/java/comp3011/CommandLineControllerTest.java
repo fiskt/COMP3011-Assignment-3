@@ -39,6 +39,7 @@ public class CommandLineControllerTest {
         "  -m, --mottle-frames    Add cloudy emulsion mottling",
         "  -b, --bleed-frames     Bleed light into frames",
         "  -p, --pepper-frames    Pepper frames with dark spots/blotches",
+        "  -S, --subtitle-frames  Add speech-to-text subtitles to frames",
         "",
         "Frame processors are applied in command-line order and may be repeated.",
         "Example: -nssnfwyvdjmbp numbers, scratches twice, numbers again, flickers,",
@@ -353,7 +354,7 @@ public class CommandLineControllerTest {
 
     @Test
     void frameProcessor_wrongCaseOptions_error() {
-        String[] shortArgs = {"-S", tempVideoPath};
+        String[] shortArgs = {"-N", tempVideoPath};
         String[] longArgs = {"--SRATCH-FRAMES", tempVideoPath};
 
         CommandLineController shortOutput = new CommandLineController(shortArgs);
@@ -363,5 +364,19 @@ public class CommandLineControllerTest {
 
         assertTrue(shortOutput.getErrorMessage().startsWith(expected));
         assertTrue(longOutput.getErrorMessage().startsWith(expected));
+    }
+
+    @Test
+    void frameProcessor_subtitleFrames_parsed() {
+        String[] shortArgs = {"-S", tempVideoPath};
+        String[] longArgs = {"--subtitle-frames", tempVideoPath};
+
+        CommandLineController shortOutput = new CommandLineController(shortArgs);
+        CommandLineController longOutput = new CommandLineController(longArgs);
+
+        List<FPOptions> expected = List.of(FPOptions.SUBTITLE_FRAMES);
+
+        assertEquals(expected, shortOutput.getFP());
+        assertEquals(expected, longOutput.getFP());
     }
 }
