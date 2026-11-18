@@ -222,6 +222,11 @@ public class VideoPlayerModel {
                 if (rf == null) continue;
 
                 try {
+                    // MARK: Reserve a slot before processing
+                    // This makes threads claim the slots at around the same order as the raw frames dequeue,
+                    // so a thread processing a later frame can't race ahead and taking all the slots
+                    frameSlots.acquire();
+
                     if (workProcessors == null) {
                         workProcessors = createWorkProcessors(infoCopy);
                     }
@@ -239,17 +244,13 @@ public class VideoPlayerModel {
                         System.nanoTime()
                     );
 
-                    // MARK: Semaphore acquisition
-                    // Blocks the put() if there are already numCores elements in processedFrames
-                    // Waits for a processed frame to be displayed before adding another one
-                    // This stops processedFrames from growing too large and causes memory issues
-                    frameSlots.acquire();
                     processedFrames.put(pf.frameNumber(), pf);
                 } catch (InterruptedException e) {
                     // Exits the try/catch block if processedFrames.put fails
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception e) {
+                    frameSlots.release();
                     e.printStackTrace();
                     break;
                 }
@@ -694,6 +695,12 @@ public class VideoPlayerModel {
         if (nextFrame != null) {
             preparedFrame = nextFrame;
             nextFrameNumber++;
+
+            // MARK: Free up a slot (by creating one new slot) so frame prep can continue
+            // This ensures that processFramesLoop isn't over producing
+            // processFramesLoop only acquires slots, it doesn't release it when its done processing
+            // that frame. Its released on frame consumption because processFramesLoop should only process
+            // another frame when one gets used up
             frameSlots.release();
         }
     }
