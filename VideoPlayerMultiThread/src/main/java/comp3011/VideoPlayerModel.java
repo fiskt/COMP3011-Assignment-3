@@ -102,8 +102,7 @@ public class VideoPlayerModel {
     private long relativeSeekBaseUs = NO_SEEK_REQUEST;
 
     // Get the number of available cores 
-    // Save 1 core for basic functionality of the app
-    // and 1 for rendering
+    // Save 1 core for basic functionality of the app and 1 for rendering
     int numCores = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
 
     // Source - https://stackoverflow.com/a/51551555
@@ -115,15 +114,12 @@ public class VideoPlayerModel {
 
     // New thread for getting the frames
     private Thread getFramesThread;
-
     // Volatile guarantees that the threads will see the updated status
     private volatile boolean isGettingFrames;
-
     // Used for initialising the local FrameBleeder, FrameMottler objects for each thread
     // because they are created after readNextVideoFrame, which initialises the frame processors, is run
     // volatile guarantees that each thread sees the copy when making the new objects
     private volatile InfoVideo infoCopy = null;
-
     private final List<Thread> processFramesThreads = new ArrayList<>();
 
     private record RawFrame(
@@ -146,6 +142,7 @@ public class VideoPlayerModel {
     private volatile SubtitleStore fetchedSubtitleStore;
     private volatile boolean startPending;
 
+    // MARK: Separate instances for FrameBleeed and FrameMottler
     // FrameBleed and FrameMottler uses shared variables that break the player when
     // multiple threads try to access the shared arrays
     // This function loops through the frame processors array built from processing the input
@@ -242,6 +239,7 @@ public class VideoPlayerModel {
                         System.nanoTime()
                     );
 
+                    // MARK: Semaphore acquisition
                     // Blocks the put() if there are already numCores elements in processedFrames
                     // Waits for a processed frame to be displayed before adding another one
                     // This stops processedFrames from growing too large and causes memory issues
@@ -284,6 +282,7 @@ public class VideoPlayerModel {
         processedFrames.clear();
 
         if (getFramesThread != null) {
+            // Interrupt the thread before trying to join it
             getFramesThread.interrupt();
             try {
                 getFramesThread.join();
@@ -293,6 +292,7 @@ public class VideoPlayerModel {
         }
 
         for (Thread workerThread : processFramesThreads) {
+            // Interrupt the thread before trying to join it
             workerThread.interrupt();
             try {
                 workerThread.join();
@@ -384,6 +384,7 @@ public class VideoPlayerModel {
         // AI assisted (Claude)
         FFmpegFrameGrabber sizingGrabber = new FFmpegFrameGrabber(file);
         try {
+            // MARK: FFmpeg grabbers/recorders aren't thread safe, lock to serialise the start
             synchronized (AudioExtractor.NATIVE_OPEN_LOCK) {
                 sizingGrabber.start();
             }
@@ -491,6 +492,9 @@ public class VideoPlayerModel {
         if (startPending) return;
         if (!playbackOpen) {
             if (videoFile != null) {
+                // 2 timestamps, for playback/seeking and FFmpeg 
+                // Playback/seeking needs the trimmed version because the grabber can't grab a frame that doesn't exist
+                // FFmpeg needs the original time, even if its past the video duration
                 startPlayback(displayableSeekTimestamp(currentTimestampUs), false, currentTimestampUs);
             }
             return;
@@ -590,9 +594,9 @@ public class VideoPlayerModel {
         closePlaybackResources();
 
         pauseRequested = initiallyPaused;
-        currentTimestampUs = initialRelativeSeekBaseUs != NO_SEEK_REQUEST
-                ? initialRelativeSeekBaseUs
-                : startTimestampUs;
+        currentTimestampUs = (initialRelativeSeekBaseUs != NO_SEEK_REQUEST)
+            ? initialRelativeSeekBaseUs
+            : startTimestampUs;
         relativeSeekBaseUs = initialRelativeSeekBaseUs;
 
         notifyStatusChanged(videoFile.getName());
@@ -622,7 +626,7 @@ public class VideoPlayerModel {
         grabber.setImageMode(FrameGrabber.ImageMode.COLOR);
         grabber.setSampleMode(FrameGrabber.SampleMode.SHORT);
 
-        // AI assisted (Claude)
+        // MARK: FFmpeg grabbers/recorders aren't thread safe, lock to serialise the start
         synchronized (AudioExtractor.NATIVE_OPEN_LOCK) {
             grabber.start();
         }
@@ -659,7 +663,9 @@ public class VideoPlayerModel {
         relativeSeekBaseUs = logicalTimestampUs;
         firstTimestampUs = NO_SEEK_REQUEST;
 
-        // Reset the frame index, arrays and semaphore
+        // MARK: Reset semaphore
+        // drainPermits() takes and moves all available permits
+        // release(numCores) adds numCores permits back
         nextFrameNumber = NO_FRAME_SET;
         processedFrames.clear();
         frameSlots.drainPermits();
@@ -684,6 +690,7 @@ public class VideoPlayerModel {
 
         // Take the correct prepared frame from the processedFrames array
         PreparedFrame nextFrame = processedFrames.remove(nextFrameNumber);
+
         if (nextFrame != null) {
             preparedFrame = nextFrame;
             nextFrameNumber++;

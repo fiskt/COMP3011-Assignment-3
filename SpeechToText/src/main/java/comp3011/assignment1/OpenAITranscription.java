@@ -98,6 +98,7 @@ public class OpenAITranscription implements TranscriptionService {
                     .build()
             );
 
+        // MARK: Use segment for subtitle contents, word for timings
         TranscriptionVerbose verbose = result.asVerbose();
         List<TranscriptionSegment> segments = verbose.segments().orElse(List.of());
         List<TranscriptionWord> words = verbose.words().orElse(List.of());
@@ -107,10 +108,12 @@ public class OpenAITranscription implements TranscriptionService {
         for (TranscriptionSegment segment : segments) {
             boolean skipSegment = segment.noSpeechProb() > 0.6 && segment.avgLogprob() < -1.0;
 
+            // Split the segment into individual words by the spaces
             String[] segmentWords = segment.text().trim().split("\\s+");
             int segmentWordCount = segmentWords.length;
             List<SubtitlesResponse.Cue> parsedSegmentWords = new ArrayList<>();
 
+            // Go through every word from the segments, and use the timings from TranscriptionWord
             for (int curr = 0; curr < segmentWordCount; curr++) {
                 double wordStart = words.get(wordIndex).start();
                 double wordEnd = words.get(wordIndex).end();

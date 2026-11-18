@@ -9,8 +9,7 @@ import org.bytedeco.javacv.Frame;
 
 public class AudioExtractor {
     // AI assisted (Claude)
-    // FFmpeg grabbers aren't thread safe, starting multiple grabbers at the same time will cause the error
-    //
+    // FFmpeg grabbers aren't thread safe, starting multiple grabbers at the same time will cause error
     // Use a lock to make sure only 1 grabber starts at any time
     public static final Object NATIVE_OPEN_LOCK = new Object();
 
@@ -19,6 +18,7 @@ public class AudioExtractor {
         audioFile.deleteOnExit();
 
         FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile);
+        // MARK: FFmpeg grabbers/recorders aren't thread safe, lock to serialise the start
         synchronized (NATIVE_OPEN_LOCK) {
             grabber.start();
         }
@@ -36,6 +36,7 @@ public class AudioExtractor {
         recorder.setFormat("wav");
         recorder.setSampleRate(grabber.getSampleRate());
         recorder.setAudioCodec(avcodec.AV_CODEC_ID_PCM_S16LE);
+        // MARK: FFmpeg grabbers/recorders aren't thread safe, lock to serialise the start
         synchronized (NATIVE_OPEN_LOCK) {
             recorder.start();
         }

@@ -174,7 +174,7 @@ public class VideoPlayerApp extends Application {
                     FFmpegFrameGrabber.tryLoad();
                 }
             } catch (Exception e) {
-                // Ignore here - if native loading genuinely fails, the real
+                // Ignore here, if native loading genuinely fails, the real
                 // grabber.start() call inside play() will surface the actual error.
             }
         });

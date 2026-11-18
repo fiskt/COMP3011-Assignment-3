@@ -73,7 +73,6 @@ public class CommandLineController {
         shortFrameProcessors.put('m', FPOptions.MOTTLE_FRAMES);
         shortFrameProcessors.put('b', FPOptions.BLEED_FRAMES);
         shortFrameProcessors.put('p', FPOptions.PEPPER_FRAMES);
-
         shortFrameProcessors.put('S', FPOptions.SUBTITLE_FRAMES);
         
         // Add long form frame processor to the map
@@ -88,7 +87,6 @@ public class CommandLineController {
         longFrameProcessors.put("--mottle-frames", FPOptions.MOTTLE_FRAMES);
         longFrameProcessors.put("--bleed-frames", FPOptions.BLEED_FRAMES);
         longFrameProcessors.put("--pepper-frames", FPOptions.PEPPER_FRAMES);
-
         longFrameProcessors.put("--subtitle-frames", FPOptions.SUBTITLE_FRAMES);
     }
 
