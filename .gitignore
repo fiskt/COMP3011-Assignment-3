@@ -21,4 +21,4 @@ buildNumber.properties
 *.zip
 key.txt
 *.sh
-src/main/java/comp3011/FetchSubtitlesTest.java
+FetchSubtitlesTest.java
