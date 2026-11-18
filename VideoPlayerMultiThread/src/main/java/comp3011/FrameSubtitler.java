@@ -20,10 +20,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Overlays speech-to-text subtitles fetched from {@link SubtitleStore} onto each frame.
+ *
+ * <p>
+ * Unlike {@link FrameMottler} and {@link FrameBleeder}, a single FrameSubtitler instance is
+ * shared across all frame processing threads because it doesn't have anything instance specific. 
+ * AWT (Font/Graphics2D/GlyphVector) isn't thread safe, so a lock is used for the rendering.
+ * </p>
+ */
 public class FrameSubtitler extends FrameProcessor {
     private static final int MAX_CHARS = 42;
     private static final int MAX_LINES = 2;
 
+    // AI assisted (Claude)
+    // Rendering isn't thread safe, lock ensures that only 1 thread renders at a time
+    // renderedTextCache stores the rendered subtitles so each distinct line is only rendered once
     private static final Object FONT_RENDER_LOCK = new Object();
     private final Map<String, BufferedImage> renderedTextCache = new ConcurrentHashMap<>();
 
@@ -59,7 +71,7 @@ public class FrameSubtitler extends FrameProcessor {
         if (textImage == null) {
             synchronized (FONT_RENDER_LOCK) {
                 // Another thread may have rendered this exact text while we
-                // were waiting for the lock - check again before redoing it.
+                // were waiting for the lock, check cache before redoing it
                 textImage = renderedTextCache.get(text);
                 if (textImage == null) {
                     textImage = renderText(wrapText(text));

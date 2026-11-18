@@ -11,6 +11,7 @@
 package comp3011;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -694,6 +695,7 @@ public class VideoPlayerModel {
         while (playbackOpen) {
             Frame frame = grabFrame();
             if (frame == null) {
+                // AI assisted (Claude) and
                 // Source - https://stackoverflow.com/a/32489845
                 // Posted by Martin Pfeffer, modified by community. See post 'Timeline' for change history
                 // Retrieved 2026-10-18, License - CC BY-SA 4.0
@@ -702,7 +704,16 @@ public class VideoPlayerModel {
                 // This error occurs when running finishPlayback on a non FX thread
                 // Platform.runLater fixes this error by running finishPlaybak on the FX thread
                 // since only FX threads can modify UI
-                Platform.runLater(this::finishPlayback);
+                boolean noRealVideoDuration = videoDurationUs == NO_SEEK_REQUEST;
+                boolean atLastFrame = currentTimestampUs >= videoDurationUs - videoFrameDurationUs;
+                boolean reachedVideoEnd = noRealVideoDuration || atLastFrame;
+
+                if (reachedVideoEnd) {
+                    Platform.runLater(this::finishPlayback);
+                } else {
+                    Platform.runLater(() -> handlePlaybackError(
+                        new IOException("Lost the video stream before reaching the end - is the media still connected?")));
+                }
                 return null;
             }
 
@@ -937,17 +948,27 @@ public class VideoPlayerModel {
         return clampedTimestampUs;
     }
 
+    // AI assisted (Claude)
+    // Makes sure seeking doesn't make the grabber try and grab a frame that is 
+    // outside the video duration
     private long displayableSeekTimestamp(long logicalTimestampUs) {
+
         long durationUs = videoDurationUs;
         if (durationUs == NO_SEEK_REQUEST || logicalTimestampUs < durationUs) {
+            // Seeking to a safe timestamp, before the end of the video
             return logicalTimestampUs;
         }
 
         int frameDurationUs = videoFrameDurationUs;
         if (frameDurationUs <= 0) {
+            // videoFrameDurationUs is <= 0 when FFmpeg can't identify the framerate of the video,
+            // so return a safe timestamp (1us before video end)
+            // We can't go back 1 single frame because we can't know the frame duration without framerate
             return Math.max(0, durationUs - 1);
         }
 
+        // Trying to seek to a timestamp that is at or past the video duration, 
+        // so return a safe timestamp (1 frame before video end)
         return Math.max(0, durationUs - frameDurationUs);
     }
 

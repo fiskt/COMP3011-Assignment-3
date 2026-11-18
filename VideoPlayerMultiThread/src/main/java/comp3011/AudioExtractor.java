@@ -9,6 +9,9 @@ import org.bytedeco.javacv.Frame;
 
 public class AudioExtractor {
     // AI assisted (Claude)
+    // FFmpeg grabbers aren't thread safe, starting multiple grabbers at the same time will cause the error
+    //
+    // Use a lock to make sure only 1 grabber starts at any time
     public static final Object NATIVE_OPEN_LOCK = new Object();
 
     public static File extractAudio(File videoFile) throws Exception {

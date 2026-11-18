@@ -120,6 +120,10 @@ public class VideoPlayerApp extends Application {
         double displayHeight = videoHeight / outputScaleY;
 
         controller.getView().setVideoDisplaySize(displayWidth, displayHeight);
+
+        // AI assisted (Claude)
+        // applyCss() and layout() compute the new size after setVideoDisplaySize(),
+        // and sizeToScene() applies it, then aligned by alignSceneToSelectedScreen()
         if (!stage.isMaximized()) {
             stage.getScene().getRoot().applyCss();
             stage.getScene().getRoot().layout();
@@ -127,6 +131,8 @@ public class VideoPlayerApp extends Application {
             alignSceneToSelectedScreen();
         }
     }
+
+    
 
     private void alignSceneToSelectedScreen() {
         if (selectedScreenBounds == null || stage.getScene() == null) {
@@ -146,6 +152,14 @@ public class VideoPlayerApp extends Application {
 
     // Entry point.
     public static void main(String[] args) {
+        // AI assisted (Claude) and
+        // Source - https://www.oracle.com/technical-resources/articles/javase/headless.html
+        // FrameSubtitler only draws into an off-screen BufferedImage, no real AWT window
+        // is shown. Without headless mode, AWT still tries to be ready for real windows, which can 
+        // contend with JavaFX own native toolkit doing the same thing and hang the app. Headless mode 
+        // makes AWT skip it since nothing here needs it.
+        System.setProperty("java.awt.headless", "true");
+
         commandLineController = new CommandLineController(args);
 
         if (!commandLineController.shouldLaunchApplication()) {

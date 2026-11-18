@@ -50,7 +50,7 @@
 			<scope>test</scope>
 		</dependency>
 		
-		<!-- ref : https://github.com/openai/openai-java#file-uploads -->
+		<!-- Source - https://github.com/openai/openai-java#file-uploads -->
 		<dependency>
 			<groupId>com.openai</groupId>
 			<artifactId>openai-java</artifactId>

@@ -54,7 +54,7 @@ public class CommandLineController {
     private List<FPOptions> frameProcessors = new ArrayList<>();
 
     // Maps for short form input (E.g. -n -s) and long form input (E.g. -number-frames)
-    // Ref: https://www.geeksforgeeks.org/java/map-interface-in-java/
+    // Source - https://www.geeksforgeeks.org/java/map-interface-in-java/
     private static final Map<Character, FPOptions> shortFrameProcessors = new HashMap<>();
     private static final Map<String, FPOptions> longFrameProcessors = new HashMap<>();
 
