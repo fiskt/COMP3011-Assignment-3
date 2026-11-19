@@ -92,8 +92,8 @@ public class FrameSubtitler extends FrameProcessor {
             int leadSpace = currentLine.isEmpty() ? 0 : 1;
             boolean onLastLine = (lines.size() == MAX_LINES - 1);
 
-            // Only wrap to a new line if we haven't used up our line budget yet.
-            // On the last line, keep appending rather than dropping overflow.
+            // Only wrap to a new line if we haven't used up our line budget yet
+            // On the last line, keep appending rather than dropping overflow
             if (!onLastLine && currentLine.length() + leadSpace + word.length() > MAX_CHARS) {
                 lines.add(currentLine.toString());
                 currentLine = new StringBuilder();
@@ -161,7 +161,6 @@ public class FrameSubtitler extends FrameProcessor {
         }
  
         return image;
-
     }
 
     // AI assisted (Claude)
@@ -203,5 +202,4 @@ public class FrameSubtitler extends FrameProcessor {
             }
         }
     }
-
 }

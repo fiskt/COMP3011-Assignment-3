@@ -14,6 +14,8 @@ public class AudioExtractor {
     public static final Object NATIVE_OPEN_LOCK = new Object();
 
     public static File extractAudio(File videoFile) throws Exception {
+        // MARK: Temp WAV file vs streaming, whisper-1 doesn't allow streaming
+        // using a temp WAV file simplifies fetching with retry
         File audioFile = File.createTempFile("audio", ".wav");
         audioFile.deleteOnExit();
 

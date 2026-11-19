@@ -99,6 +99,8 @@ public class OpenAITranscription implements TranscriptionService {
             );
 
         // MARK: Use segment for subtitle contents, word for timings
+        // Allows sentences with pauses to be split so it fits the requirement of subtitles
+        // appearing for at max 7 seconds 
         TranscriptionVerbose verbose = result.asVerbose();
         List<TranscriptionSegment> segments = verbose.segments().orElse(List.of());
         List<TranscriptionWord> words = verbose.words().orElse(List.of());

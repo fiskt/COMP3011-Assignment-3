@@ -246,7 +246,7 @@ public class VideoPlayerModel {
 
                     processedFrames.put(pf.frameNumber(), pf);
                 } catch (InterruptedException e) {
-                    // Exits the try/catch block if processedFrames.put fails
+                    // Handle interrrupt while waiting on acquire()
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception e) {
@@ -410,8 +410,11 @@ public class VideoPlayerModel {
         AtomicBoolean playbackStarted = new AtomicBoolean(false);
 
         // AI assisted (Claude)
-        // Give the fetching a 10 second head start, start playing the video after
-        // even if the subtitles aren't done
+        // MARK: Async subtitle fetching
+        // whisper-1 doesn't allow streaming so we give the fetching a 10 second head start, 
+        // start playing the video after even if the subtitles aren't done
+        // Slow network and transcription processing can't affect video playback, but subtitles
+        // might not show immediately
         PauseTransition startTimeout = new PauseTransition(Duration.seconds(10));
         startTimeout.setOnFinished(e -> {
             // Start playback once the timeout is over
@@ -431,11 +434,13 @@ public class VideoPlayerModel {
                 if (videoFile != file) return;
                 fetchedSubtitleStore = subtitleResult;
 
+                // Start playback since fetch is done before timeout is over
                 if (playbackStarted.compareAndSet(false, true)) {
                     startTimeout.stop();
                     startPending = false;
                     startPlayback(0, false, NO_SEEK_REQUEST);
                 } else {
+                    // Playback already started, so set up subtitler now that they are ready
                     setupSubtitler();
                 }
             });
@@ -444,6 +449,9 @@ public class VideoPlayerModel {
         fetchSubtitleThread.start();
     }
 
+    // MARK: Subtitles fetch with retry
+    // Can recover from temporary service outages and users don't need to manually retry
+    // But no retry limit
     private SubtitleStore fetchSubtitleRetry(File file) {
         File audioFile;
         try {
@@ -452,8 +460,10 @@ public class VideoPlayerModel {
             e.printStackTrace();
             return null;
         }
+
         if (audioFile == null) return null;
 
+        // Only retry if the video file is the same
         while (videoFile == file) {
             try {
                 SubtitleStore store = SubtitleStore.fetchSubtitles(audioFile);
@@ -463,6 +473,7 @@ public class VideoPlayerModel {
             }
 
             try {
+                // Wait before retrying
                 Thread.sleep(FETCH_SUBTITLE_RETRY_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

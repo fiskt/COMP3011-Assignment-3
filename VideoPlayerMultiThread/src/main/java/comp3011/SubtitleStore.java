@@ -39,6 +39,7 @@ public class SubtitleStore {
         return subtitles;
     }
 
+    // Simple O(n) lookup but can become slower as number of subtitles increase
     public String activeSubtitleAt(long timestampUs) {
         // Loop though all the subtitles
         // Return the subtitle text if the timestamp is within its display time
@@ -81,11 +82,12 @@ public class SubtitleStore {
         return new SubtitleStore(subtitles);
     }
 
-    // AI assisted (Claude)
+    
     private static List<Subtitle> parseSubtitleResponse(HttpResponse<String> response) {
         List<Subtitle> subtitles = new ArrayList<>();
         List<Subtitle> currentSentence = new ArrayList<>();
 
+        // AI assisted (Claude)
         JSONObject json = new JSONObject(response.body());
         JSONArray cues = json.getJSONArray("cues");
 
